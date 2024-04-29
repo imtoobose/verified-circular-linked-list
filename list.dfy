@@ -1,6 +1,3 @@
-//https://github.com/vmware-labs/verified-betrfs/blob/d13ee563391daf84ff03db9a6b1986b4c072b0b3/examples/circular_list.dfy#L47
-
-
 function IndexOf(s: seq<Node>, e: Node) : int
   requires e in s
   requires NoDupes(s)
@@ -15,7 +12,7 @@ class Node {
   var prev: Node
   var next:  Node
   ghost var nodes: seq<Node>
-
+  // int nat seq<Node> map<node> set<Node> 
   constructor()
     ensures Valid(this)
     ensures this == this.nodes[0]
@@ -40,6 +37,8 @@ predicate Singleton(n: Node)
 
 predicate NoDupes(a: seq<Node>) {
   (forall i, j :: 0 <= i < |a| && 0 <= j < |a| && i != j ==> a[i] != a[j])
+  // for any integer in existence := i, j -> constraint => 0 <= i < len(a), j I!=J => A[I] = A[J]
+  // while loop => recursion / forall lemma 
 }
 
 // Validity of a link in a cicular linked list
