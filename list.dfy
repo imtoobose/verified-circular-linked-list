@@ -1,62 +1,6 @@
-function IndexOf(s: seq<Node>, e: Node) : int
-  requires e in s
-  requires NoDupes(s)
-  ensures 0 <= IndexOf(s,e) < |s|
-  ensures s[IndexOf(s,e)] == e
-{
-  var i :| 0 <= i < |s| && s[i] == e;
-  i
-}
+include "utils.dfy"
+include "Node.dfy"
 
-class Node {
-  var prev: Node
-  var next:  Node
-  ghost var nodes: seq<Node>
-  // int nat seq<Node> map<node> set<Node> 
-  constructor()
-    ensures Valid(this)
-    ensures this == this.nodes[0]
-    ensures Singleton(this)
-  {
-    prev := this;
-    next := this;
-    nodes := [ this ];
-  }
-}
-
-// implies that this node is not connected to any other nodes.
-predicate Singleton(n: Node)
-  requires Valid(n)
-  ensures Singleton(n) ==> n.nodes == [ n ]
-  reads n, n.nodes
-{
-  ghost var i := IndexOf(n.nodes, n);
-  assert n.next == n.nodes[(i + 1) % |n.nodes|];
-  n.prev == n.next == n
-}
-
-predicate NoDupes(a: seq<Node>) {
-  (forall i, j :: 0 <= i < |a| && 0 <= j < |a| && i != j ==> a[i] != a[j])
-  // for any integer in existence := i, j -> constraint => 0 <= i < len(a), j I!=J => A[I] = A[J]
-  // while loop => recursion / forall lemma 
-}
-
-// Validity of a link in a cicular linked list
-ghost predicate Valid(node: Node)
-  reads node
-  reads node.nodes
-{
-  var nodes := node.nodes;
-
-  && |nodes| > 0
-  && (node in multiset(nodes)) // self is present in the set of nodes
-  && (forall node' :: node' in nodes ==> node'.nodes == nodes) // all nodes are same in the chain
-  && NoDupes(nodes) // no duplicates in the chain (they are pointers)
-  && (forall i :: 0 <= i < |nodes| - 1 ==> nodes[i].next == nodes[i+1]) // assert that every next pointer is in the next index
-  && nodes[|nodes|-1].next == nodes[0] // except the very last one that wraps to the first one
-  && (forall i :: 1 <= i < |nodes| ==> nodes[i].prev == nodes[i-1]) // assert that every prev pointer is in the prev index
-  && nodes[0].prev == nodes[|nodes|-1] // except the very first one that wraps to the last one
-}
 
 // analogue to __list_add
 method internal_list_add(new_node: Node, prev: Node, next: Node)
@@ -111,3 +55,99 @@ method list_add(new_node: Node, head: Node)
   assert head.nodes[(IndexOf(head.nodes, head)+1) % |head.nodes|] == head.next;
   internal_list_add(new_node, head, head.next);
 }
+
+method list_add_tail(new_node: Node, head: Node)
+  requires Valid(new_node)
+  requires Valid(head)
+  requires Singleton(new_node)
+  requires new_node !in head.nodes
+  modifies new_node, head, multiset(head.nodes)
+{
+  assert head.nodes[(IndexOf(head.nodes, head)+|head.nodes|-1) % |head.nodes|] == head.prev;
+  internal_list_add(new_node, head.prev, head);
+}
+
+method internal_list_del(prev: Node, next: Node)
+  requires Valid(prev) && Valid(next) && Valid(prev.next)
+  requires prev.next.next == next
+  requires prev != prev.next && prev.next != next
+  requires prev.nodes == next.nodes == prev.next.nodes
+  modifies prev, next, prev.next, multiset(prev.nodes)
+  ensures Valid(prev)
+  ensures Valid(next)
+  ensures prev.next == next
+  ensures next.prev == prev
+  ensures prev.nodes == next.nodes
+  ensures |prev.nodes| == |old(prev.nodes)| - 1
+  ensures old(prev.next) !in prev.nodes && old(next.prev) !in next.nodes
+  // ensures multiset(prev.nodes) == multiset(old(prev.nodes)) - multiset{old(prev.next)}
+{
+  var prev_next := prev.next; // maintain reference to removed node
+  next.prev := prev;
+  prev.next := next;
+
+  ghost var prev_idx := IndexOf(prev.nodes, prev);
+  ghost var removed_idx := IndexOf(prev.nodes, prev_next);
+  ghost var next_idx := IndexOf(prev.nodes, next);
+
+  // 3 cases - prev is the last node, the second last node, or any other node
+  // in each assert the position of prev_next and next, then proceed to remove prev_next from the list
+  if prev_idx == |prev.nodes| - 1 {
+    assert prev.nodes[0] == prev_next;
+    assert prev.nodes[1] == next;
+
+    var new_nodes := prev.nodes[1..];
+    prev.nodes := new_nodes;
+    forall a' | a' in new_nodes {
+      a'.nodes := new_nodes;
+    }
+    assert prev.nodes[0] == next;
+  } else if prev_idx == |prev.nodes| - 2 {
+    assert prev.nodes[0] == next;
+    assert prev.nodes[|prev.nodes|-1] == prev_next;
+
+    var new_nodes := prev.nodes[..prev_idx+1];
+    forall a' | a' in new_nodes {
+      a'.nodes := new_nodes;
+    }
+  } else {
+    assert prev.nodes[prev_idx+1] == prev_next;
+    assert prev.nodes[prev_idx+2] == next;
+    assert next_idx == prev_idx+2;
+
+    var splice_till_prev := prev.nodes[..prev_idx+1];
+    var splice_from_next := prev.nodes[next_idx..];
+    var new_nodes := splice_till_prev + splice_from_next;
+    assert |new_nodes| >= 2;
+    prev.nodes := new_nodes;
+    forall a' | a' in new_nodes {
+      a'.nodes := new_nodes;
+    }
+  }
+}
+
+// method list_del_entry(entry: Node)
+// requires Valid(entry) && Valid(entry.prev) && Valid(entry.next) 
+// requires entry != entry.prev && entry != entry.next
+// requires entry.next.nodes == entry.prev.nodes == entry.nodes
+// modifies entry, entry.prev, entry.next, multiset(entry.nodes), multiset(entry.prev.nodes)
+// ensures Valid(entry.prev)
+// ensures Valid(entry.next)
+// {
+//   var entry_next := entry.next;
+//   var entry_prev := entry.prev;
+
+//   // assert entry != entry.prev && entry != entry.next  ==> |entry.nodes| >= 2;
+//   assert entry.nodes[get_prev_seq_idx(entry.nodes, IndexOf(entry.nodes, entry))] == entry.prev;
+//   assert entry.nodes[get_next_seq_idx(entry.nodes, IndexOf(entry.nodes, entry))] == entry.next;
+  
+//   assert Valid(entry) && entry != entry.prev ==> |entry.nodes| >= 2;
+//   // assert Valid(entry.prev) && Valid(entry) && entry.nodes == entry.prev.nodes ==> entry.prev.next == entry;
+//   // assert Valid(entry.next) && Valid(entry) && entry.nodes == entry.next.nodes ==> entry.next.prev == entry;
+//   // assert entry.prev.next.next == entry.next;
+//   // assert entry.next.prev.prev == entry.prev;
+
+//   internal_list_del(entry.prev, entry.next); 
+
+//   assert |entry.prev.nodes| == |entry.nodes| - 1;
+// }
