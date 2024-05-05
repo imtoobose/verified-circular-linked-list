@@ -13,6 +13,13 @@ method INIT_LIST_HEAD(node: Node)
   node.nodes := [node];
 }
 
+ghost predicate same_linked_list(nodes: seq<Node>)
+  requires |nodes| >= 1
+  reads multiset(nodes)
+{
+  var ghost_nodes := nodes[0].nodes;
+  forall node' :: node' in nodes ==> node'.nodes == ghost_nodes
+}
 // analogue to __list_add
 method internal_list_add(new_node: Node, prev: Node, next: Node)
   requires Valid(new_node) && Valid(prev) && Valid(next) // must be valid nodes
@@ -74,9 +81,10 @@ method internal_list_add(new_node: Node, prev: Node, next: Node)
       assert NoDupes(splice_from_next);
       assert new_node !in splice_till_prev && new_node !in splice_from_next ==> NoDupes(splice_till_prev + [new_node]+ splice_from_next) ==> NoDupes(new_nodes);
 
+      new_node.nodes := new_nodes;
+      assert NoDupes(new_node.nodes);
       prev.nodes := new_nodes;
       next.nodes := new_nodes;
-      new_node.nodes := new_nodes;
       forall a' | a' in new_nodes {
         a'.nodes := new_nodes;
       }
@@ -121,19 +129,12 @@ method list_add_tail(new_node: Node, head: Node)
   modifies new_node, head, multiset(head.nodes)
   ensures Valid(new_node)
   ensures Valid(head)
+  ensures same_linked_list([head, new_node])
   ensures head.nodes[get_prev_seq_idx(head.nodes, IndexOf(head.nodes, head))] == new_node
 {
   assert head.nodes[(IndexOf(head.nodes, head)+|head.nodes|-1) % |head.nodes|] == head.prev;
   assert same_linked_list([head, head.prev]);
   internal_list_add(new_node, head.prev, head);
-}
-
-ghost predicate same_linked_list(nodes: seq<Node>)
-  requires |nodes| >= 1
-  reads multiset(nodes)
-{
-  var ghost_nodes := nodes[0].nodes;
-  forall node' :: node' in nodes ==> node'.nodes == ghost_nodes
 }
 
 method internal_list_del(prev: Node, next: Node)
@@ -204,7 +205,6 @@ method internal_list_del(prev: Node, next: Node)
 method list_del_entry(entry: Node)
   requires Valid(entry)
   requires entry != entry.prev && entry != entry.next
-  requires entry.next.nodes == entry.prev.nodes == entry.nodes
   modifies multiset(entry.nodes)
   ensures Valid(old(entry.prev))
   ensures Valid(old(entry.next))
@@ -212,6 +212,8 @@ method list_del_entry(entry: Node)
   // assert entry != entry.prev && entry != entry.next  ==> |entry.nodes| >= 2;
   assert entry.nodes[get_prev_seq_idx(entry.nodes, IndexOf(entry.nodes, entry))] == entry.prev;
   assert entry.nodes[get_next_seq_idx(entry.nodes, IndexOf(entry.nodes, entry))] == entry.next;
+  assert Valid(entry) ==> entry.next.nodes == entry.nodes;
+  assert Valid(entry) ==> entry.prev.nodes == entry.nodes;
   internal_list_del(entry.prev, entry.next);
 }
 
@@ -302,4 +304,74 @@ method list_del_init(entry: Node)
   assert Valid(entry_next);
 
   INIT_LIST_HEAD(entry);
+}
+
+method list_move(list: Node, head: Node)
+  requires Valid(list)
+  requires Valid(head)
+  requires list != list.prev && list != list.next
+  requires multiset(list.nodes) !! multiset(head.nodes)
+  modifies multiset(list.nodes), multiset(head.nodes)
+  ensures same_linked_list([list, head])
+  ensures Valid(head)
+  ensures Valid(list)
+{
+  list_del_entry(list);
+
+  // the list is invalid here because list points to a chain of nodes it's not a part of.
+  // @change
+  INIT_LIST_HEAD(list);
+
+  list_add(list, head);
+}
+
+method list_move_tail(list: Node,
+                      head: Node)
+  requires Valid(list)
+  requires Valid(head)
+  requires list != list.prev && list != list.next
+  requires multiset(list.nodes) !! multiset(head.nodes)
+  modifies multiset(list.nodes), multiset(head.nodes)
+  ensures same_linked_list([list, head])
+  ensures Valid(head)
+  ensures Valid(list)
+{
+  list_del_entry(list);
+
+  // the list is invalid here because list points to a chain of nodes it's not a part of.
+  // @change
+  INIT_LIST_HEAD(list);
+
+  list_add_tail(list, head);
+}
+
+method list_is_last(list: Node, head: Node) returns (ret: bool)
+  requires Valid(list)
+  requires Valid(head)
+  ensures ret ==> list.nodes[get_next_seq_idx(list.nodes, IndexOf(list.nodes, list))] == head
+{
+  return list.next == head;
+}
+
+predicate list_empty(head: Node)
+  reads head, multiset(head.nodes)
+  requires Valid(head)
+  ensures list_empty(head) ==> Singleton(head)
+{
+  head.next == head
+}
+
+method list_rotate_left(head: Node)
+  requires Valid(head)
+{
+  var first: Node?;
+
+  if (!list_empty(head)) {
+    first := head.next;
+    assert Valid(head) ==> head.next == head.nodes[get_next_seq_idx(head.nodes, IndexOf(head.nodes, head))];
+    assert Valid(head) ==> Valid(head.next);
+    assert Valid(first);
+
+    list_move_tail(first, head);
+  }
 }
