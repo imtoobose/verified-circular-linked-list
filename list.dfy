@@ -13,8 +13,16 @@ method internal_list_add(new_node: Node, prev: Node, next: Node)
   ensures Valid(new_node)
   ensures Valid(prev)
   ensures Valid(next)
-  ensures prev.nodes == next.nodes == new_node.nodes
+  ensures same_linked_list([prev, next, new_node])
   ensures |prev.nodes| == |old(prev.nodes)|+1
+  ensures (
+         var prev_idx := IndexOf(old(prev.nodes), prev);
+         && (prev_idx == |old(prev.nodes)|-1 ==> prev.nodes == old(prev.nodes) + [new_node])
+         && (0 <= prev_idx < |old(prev.nodes)|-1 ==> (
+           if |old(prev.nodes)| == 1 then prev.nodes == [prev, new_node]
+           else prev.nodes  == old(prev.nodes[..prev_idx])+[prev, new_node]+old(prev.nodes[(prev_idx+1)..]))
+         )
+       )
 {
   next.prev := new_node;
   new_node.next := next;
@@ -37,11 +45,15 @@ method internal_list_add(new_node: Node, prev: Node, next: Node)
     }
   } else {
     assert prev.nodes[prev_idx+1] == next;
-    ghost var new_nodes := prev.nodes[..(prev_idx+1)] + [new_node] + prev.nodes[(prev_idx+1)..];
-    prev.nodes := new_nodes; // not sure why this is needed
+    ghost var new_nodes := [prev, new_node];
+    if |prev.nodes| > 1 {
+      assert prev.nodes[prev_idx+1] == next;
+      new_nodes := prev.nodes[..prev_idx] + [prev, new_node] + prev.nodes[(prev_idx+1)..];
+    }
     forall a' | a' in new_nodes {
       a'.nodes := new_nodes;
     }
+    assert prev in new_nodes && next in new_nodes && new_node in new_nodes;
   }
 }
 
@@ -51,6 +63,10 @@ method list_add(new_node: Node, head: Node)
   requires Singleton(new_node)
   requires new_node !in head.nodes
   modifies new_node, head, multiset(head.nodes)
+  ensures Valid(new_node)
+  ensures Valid(head)
+  ensures same_linked_list([head, new_node])
+  ensures head.nodes[get_next_seq_idx(head.nodes, IndexOf(head.nodes, head))] == new_node
 {
   assert head.nodes[(IndexOf(head.nodes, head)+1) % |head.nodes|] == head.next;
   internal_list_add(new_node, head, head.next);
@@ -62,6 +78,9 @@ method list_add_tail(new_node: Node, head: Node)
   requires Singleton(new_node)
   requires new_node !in head.nodes
   modifies new_node, head, multiset(head.nodes)
+  ensures Valid(new_node)
+  ensures Valid(head)
+  ensures head.nodes[get_prev_seq_idx(head.nodes, IndexOf(head.nodes, head))] == new_node
 {
   assert head.nodes[(IndexOf(head.nodes, head)+|head.nodes|-1) % |head.nodes|] == head.prev;
   internal_list_add(new_node, head.prev, head);
@@ -141,10 +160,10 @@ method internal_list_del(prev: Node, next: Node)
 
 
 method list_del_entry(entry: Node)
-requires Valid(entry) && Valid(entry.prev) && Valid(entry.next) 
+requires Valid(entry) 
 requires entry != entry.prev && entry != entry.next
 requires entry.next.nodes == entry.prev.nodes == entry.nodes
-modifies entry, entry.prev, entry.next, multiset(entry.nodes), multiset(entry.prev.nodes)
+modifies multiset(entry.nodes)
 ensures Valid(entry.prev)
 ensures Valid(entry.next)
 {
