@@ -30,7 +30,8 @@ function get_prev_seq_idx(s: seq<Node>, i: int): int
     (i+|s|-1) % |s|
 }
 
-predicate NoDupes(a: seq<Node>) {
+predicate  NoDupes(a: seq<Node>)
+ {
   (forall i, j :: 0 <= i < |a| && 0 <= j < |a| && i != j ==> a[i] != a[j])
   // for any integer in existence := i, j -> constraint => 0 <= i < len(a), j I!=J => A[I] = A[J]
   // while loop => recursion / forall lemma

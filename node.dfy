@@ -36,7 +36,7 @@ ghost predicate Valid(node: Node)
 
   && |nodes| > 0
   && (node in multiset(nodes)) // self is present in the set of nodes
-  && (forall node' :: node' in nodes ==> node'.nodes == nodes) // all nodes are same in the chain
+  && (forall node' {:trigger node'.nodes == nodes} :: node' in nodes ==>  node'.nodes == nodes) // all nodes are same in the chain
   && NoDupes(nodes) // no duplicates in the chain (they are pointers)
   && (forall i :: 0 <= i < |nodes| - 1 ==> nodes[i].next == nodes[i+1]) // assert that every next pointer is in the next index
   && nodes[|nodes|-1].next == nodes[0] // except the very last one that wraps to the first one
