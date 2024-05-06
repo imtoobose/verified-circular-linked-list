@@ -110,9 +110,9 @@ def randomCheck():
     for i in range(10):
         listSize = getSize(node0)
         if listSize == 1:
-             randomOp = random.randrange(1, 6)
+             randomOp = random.choice([1, 2])
         else:
-            randomOp = random.randrange(0, 6)
+            randomOp = random.randrange(0, 4)
         
         if randomOp == 0:   # Delete Operation
             randomNode = random.randrange(1, listSize)
@@ -145,9 +145,21 @@ def randomCheck():
                 temp = createNewNode()
                 default__.list__add__tail(temp, node0)
             print("Printing List after adding " + str(numNodes) + " node(s) to the tail")
-            printList(node0
-                      )
-        
+            printList(node0)
+
+        elif randomOp == 3: #list
+            size = getSize(node0)
+            newNode = createNewNode()
+            print("Id of New Node: " + str(nodeMap[newNode]) + ", list of nodes before replacement: ")
+            printList(node0)
+            randNode = random.randrange(1, size)
+            temp = node0
+            for i in range(randNode):
+                temp = temp.next
+            print("Replacing Node " + str(randNode + 1) + "(Id: " + str(nodeMap[temp]) + ") with Node of Id: " + str(nodeMap[newNode]))
+            default__.list__replace__init(temp, newNode)
+            printList(node0)
+            
 
 
 dll = createNewNode()
@@ -169,4 +181,4 @@ listIsLastTest(dll)
 replaceInitTest(dll)
 print("\nStart of Random Tests")
 randomCheck()
-print(nodeMap)
+# print(nodeMap)
