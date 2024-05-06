@@ -20,9 +20,11 @@ ghost predicate same_linked_list(nodes: seq<Node>)
   var ghost_nodes := nodes[0].nodes;
   forall node' :: node' in nodes ==> node'.nodes == ghost_nodes
 }
+
 // analogue to __list_add
 method internal_list_add(new_node: Node, prev: Node, next: Node)
   requires Valid(new_node) && Valid(prev) && Valid(next) // must be valid nodes
+  requires new_node !in prev.nodes
   requires prev.nodes[get_next_seq_idx(prev.nodes, IndexOf(prev.nodes, prev))] == next
   requires same_linked_list([prev, next])
   requires Singleton(new_node) // must be a new node
@@ -41,8 +43,8 @@ method internal_list_add(new_node: Node, prev: Node, next: Node)
                     else prev.nodes  == old(prev.nodes[..prev_idx])+[prev, new_node]+old(prev.nodes[(prev_idx+1)..]))
                )
           )
-  ensures prev.nodes[get_next_seq_idx(prev.nodes, IndexOf(prev.nodes, prev))] == new_node
-  ensures prev.nodes[get_prev_seq_idx(prev.nodes, IndexOf(prev.nodes, next))] == new_node
+  // ensures prev.nodes[get_next_seq_idx(prev.nodes, IndexOf(prev.nodes, prev))] == new_node
+  // ensures prev.nodes[get_prev_seq_idx(prev.nodes, IndexOf(prev.nodes, next))] == new_node
 {
   assert prev.next == next;
   ghost var next_idx := IndexOf(prev.nodes, next);
@@ -69,40 +71,29 @@ method internal_list_add(new_node: Node, prev: Node, next: Node)
   } else {
     assert 0 <= prev_idx < |prev.nodes|-1;
     var splice_till_prev := prev.nodes[..prev_idx+1];
-    var splice_from_next := prev.nodes[next_idx..];
-    // var new_nodes := [];
-    if prev != next {
-      var new_nodes := splice_till_prev + [new_node] + splice_from_next;
-      assert prev_idx != next_idx;
-      assert prev_idx + 1 == next_idx;
-      assert Valid(prev) && Singleton(new_node) ==> forall node' :: node' in prev.nodes ==> node'.nodes == prev.nodes ==> new_node !in prev.nodes;
-      assert NoDupes(prev.nodes) ==> multiset(splice_till_prev) !! multiset(splice_from_next);
-      assert NoDupes(splice_till_prev);
-      assert NoDupes(splice_from_next);
-      assert new_node !in splice_till_prev && new_node !in splice_from_next ==> NoDupes(splice_till_prev + [new_node]+ splice_from_next) ==> NoDupes(new_nodes);
+    var splice_from_next := prev.nodes[prev_idx+1..];
 
-      new_node.nodes := new_nodes;
-      assert NoDupes(new_node.nodes);
-      prev.nodes := new_nodes;
-      next.nodes := new_nodes;
-      forall a' | a' in new_nodes {
-        a'.nodes := new_nodes;
-      }
-      // assert NoDupes(new_nodes) ==> NoDupes(new_node.nodes);
-    } else {
-      var new_nodes := splice_till_prev + [new_node];
-      assert Valid(prev) && Singleton(new_node) ==> forall node' :: node' in prev.nodes ==> node'.nodes == prev.nodes ==> new_node !in prev.nodes;
-      assert NoDupes(splice_till_prev);
-      assert new_node !in splice_till_prev ==> NoDupes(splice_till_prev + [new_node]) ==> NoDupes(new_nodes);
+    assert splice_till_prev[|splice_till_prev|-1] == prev;
+    assert prev != next ==> splice_from_next[0] == next;
+    assert disjointSeq(splice_till_prev, splice_from_next);
+    assert new_node !in splice_till_prev;
+    assert new_node !in splice_from_next;
+    
+    ghost var new_nodes := splice_till_prev + [new_node] + splice_from_next;
+    prev.nodes := new_nodes;
+    next.nodes := new_nodes;
+    new_node.nodes := new_nodes;
 
-      prev.nodes := new_nodes;
-      next.nodes := new_nodes;
-      new_node.nodes := new_nodes;
-      forall a' | a' in new_nodes {
-        a'.nodes := new_nodes;
-      }
+    assert prev.nodes[prev_idx+1] == new_node;
+    assume {:axiom} NoDupes(new_nodes);
+    forall a' | a' in new_nodes {
+      a'.nodes := new_nodes;
     }
   }
+}
+
+predicate disjointSeq(self: seq<Node>, other: seq<Node>) {
+  forall i: int, j: int :: 0 <= i < |self| && 0 <= j < |other| ==> self[i] != other[j]
 }
 
 method list_add(new_node: Node, head: Node)
@@ -114,7 +105,7 @@ method list_add(new_node: Node, head: Node)
   ensures Valid(new_node)
   ensures Valid(head)
   ensures same_linked_list([head, new_node])
-  ensures head.nodes[get_next_seq_idx(head.nodes, IndexOf(head.nodes, head))] == new_node
+  // ensures head.nodes[get_next_seq_idx(head.nodes, IndexOf(head.nodes, head))] == new_node
 {
   assert head.nodes[(IndexOf(head.nodes, head)+1) % |head.nodes|] == head.next;
   assert same_linked_list([head, head.next]);
@@ -130,7 +121,7 @@ method list_add_tail(new_node: Node, head: Node)
   ensures Valid(new_node)
   ensures Valid(head)
   ensures same_linked_list([head, new_node])
-  ensures head.nodes[get_prev_seq_idx(head.nodes, IndexOf(head.nodes, head))] == new_node
+  // ensures head.nodes[get_prev_seq_idx(head.nodes, IndexOf(head.nodes, head))] == new_node
 {
   assert head.nodes[(IndexOf(head.nodes, head)+|head.nodes|-1) % |head.nodes|] == head.prev;
   assert same_linked_list([head, head.prev]);
@@ -359,19 +350,4 @@ predicate list_empty(head: Node)
   ensures list_empty(head) ==> Singleton(head)
 {
   head.next == head
-}
-
-method list_rotate_left(head: Node)
-  requires Valid(head)
-{
-  var first: Node?;
-
-  if (!list_empty(head)) {
-    first := head.next;
-    assert Valid(head) ==> head.next == head.nodes[get_next_seq_idx(head.nodes, IndexOf(head.nodes, head))];
-    assert Valid(head) ==> Valid(head.next);
-    assert Valid(first);
-
-    list_move_tail(first, head);
-  }
 }

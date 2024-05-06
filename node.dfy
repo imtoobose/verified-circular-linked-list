@@ -14,21 +14,6 @@ class Node {
     next := this;
     nodes := [ this ];
   }
-
-  lemma next_is_valid()
-    requires Valid(this)
-    ensures Valid(next)
-    ensures next.nodes == nodes
-  {
-    assert this.nodes[get_next_seq_idx(this.nodes, IndexOf(this.nodes, this))] == this.next;
-  }
-
-  lemma prev_is_valid()
-    requires Valid(this)
-    ensures Valid(prev)
-    ensures prev.nodes == nodes {
-    assert this.nodes[get_prev_seq_idx(this.nodes, IndexOf(this.nodes, this))] == this.prev;
-  }
 }
 
 // implies that this node is not connected to any other nodes.
