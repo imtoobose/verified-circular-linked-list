@@ -82,7 +82,10 @@ method internal_list_add(new_node: Node, prev: Node, next: Node)
     next.footprint := new_nodes;
     new_node.footprint := new_nodes;
 
-    assert prev.footprint[prev_idx+1] == new_node;
+    assert prev.footprint[prev_idx+1] == new_node == prev.next;
+    assert prev.footprint[prev_idx] == prev == new_node.prev;
+    assert prev != next ==> prev.footprint[prev_idx+2] == next == new_node.next;
+    
     assume {:axiom} NoDupes(new_nodes);
     forall a' | a' in new_nodes {
       a'.footprint := new_nodes;
