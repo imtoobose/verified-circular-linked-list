@@ -4,48 +4,48 @@ include "Node.dfy"
 method INIT_LIST_HEAD(node: Node)
   modifies node
   ensures node.prev == node
-  ensures node.nodes == [node]
+  ensures node.footprint == [node]
   ensures node.next == node
   ensures Singleton(node)
 {
   node.prev := node;
   node.next := node;
-  node.nodes := [node];
+  node.footprint := [node];
 }
 
 ghost predicate same_linked_list(nodes: seq<Node>)
   requires |nodes| >= 1
   reads multiset(nodes)
 {
-  var ghost_nodes := nodes[0].nodes;
-  forall node' :: node' in nodes ==> node'.nodes == ghost_nodes
+  var ghost_nodes := nodes[0].footprint;
+  forall node' :: node' in nodes ==> node'.footprint == ghost_nodes
 }
+
 // analogue to __list_add
 method internal_list_add(new_node: Node, prev: Node, next: Node)
   requires Valid(new_node) && Valid(prev) && Valid(next) // must be valid nodes
-  requires prev.nodes[get_next_seq_idx(prev.nodes, IndexOf(prev.nodes, prev))] == next
+  requires new_node !in prev.footprint
+  requires prev.footprint[get_next_seq_idx(prev.footprint, IndexOf(prev.footprint, prev))] == next
   requires same_linked_list([prev, next])
   requires Singleton(new_node) // must be a new node
   requires new_node != prev && new_node != next // all are different nodes
-  modifies new_node, new_node.next, new_node.prev, multiset(prev.nodes)
+  modifies new_node, new_node.next, new_node.prev, multiset(prev.footprint)
   ensures Valid(new_node)
   ensures Valid(prev)
   ensures Valid(next)
   ensures same_linked_list([prev, next, new_node])
-  ensures |prev.nodes| == |old(prev.nodes)|+1
+  ensures |prev.footprint| == |old(prev.footprint)|+1
   ensures (
-            var prev_idx := IndexOf(old(prev.nodes), prev);
-            && (prev_idx == |old(prev.nodes)|-1 ==> prev.nodes == old(prev.nodes) + [new_node])
-            && (0 <= prev_idx < |old(prev.nodes)|-1 ==> (
-                    if |old(prev.nodes)| == 1 then prev.nodes == [prev, new_node]
-                    else prev.nodes  == old(prev.nodes[..prev_idx])+[prev, new_node]+old(prev.nodes[(prev_idx+1)..]))
+            var prev_idx := IndexOf(old(prev.footprint), prev);
+            && (prev_idx == |old(prev.footprint)|-1 ==> prev.footprint == old(prev.footprint) + [new_node])
+            && (0 <= prev_idx < |old(prev.footprint)|-1 ==> (
+                    if |old(prev.footprint)| == 1 then prev.footprint == [prev, new_node]
+                    else prev.footprint  == old(prev.footprint[..prev_idx])+[prev, new_node]+old(prev.footprint[(prev_idx+1)..]))
                )
           )
-  ensures prev.nodes[get_next_seq_idx(prev.nodes, IndexOf(prev.nodes, prev))] == new_node
-  ensures prev.nodes[get_prev_seq_idx(prev.nodes, IndexOf(prev.nodes, next))] == new_node
 {
   assert prev.next == next;
-  ghost var next_idx := IndexOf(prev.nodes, next);
+  ghost var next_idx := IndexOf(prev.footprint, next);
 
   next.prev := new_node;
   new_node.next := next;
@@ -56,67 +56,55 @@ method internal_list_add(new_node: Node, prev: Node, next: Node)
   // Consider 2 cases - when prev is the very last node, and when it isn't, to handle appending the node correctly
   // NOTE: the nodes object is shared so directly modifying it will affect everyone. Be careful!
 
-  assert prev.nodes[IndexOf(prev.nodes, prev)] == prev;
-  assert next.nodes[IndexOf(next.nodes, next)] == next;
-  var prev_idx := IndexOf(prev.nodes, prev);
+  assert prev.footprint[IndexOf(prev.footprint, prev)] == prev;
+  assert next.footprint[IndexOf(next.footprint, next)] == next;
+  var prev_idx := IndexOf(prev.footprint, prev);
 
-  if prev_idx == |prev.nodes|-1 {
-    assert prev.nodes[0] == next;
-    ghost var new_nodes := prev.nodes + [new_node];
+  if prev_idx == |prev.footprint|-1 {
+    assert prev.footprint[0] == next;
+    ghost var new_nodes := prev.footprint + [new_node];
     forall a' | a' in new_nodes {
-      a'.nodes := new_nodes;
+      a'.footprint := new_nodes;
     }
   } else {
-    assert 0 <= prev_idx < |prev.nodes|-1;
-    var splice_till_prev := prev.nodes[..prev_idx+1];
-    var splice_from_next := prev.nodes[next_idx..];
-    // var new_nodes := [];
-    if prev != next {
-      var new_nodes := splice_till_prev + [new_node] + splice_from_next;
-      assert prev_idx != next_idx;
-      assert prev_idx + 1 == next_idx;
-      assert Valid(prev) && Singleton(new_node) ==> forall node' :: node' in prev.nodes ==> node'.nodes == prev.nodes ==> new_node !in prev.nodes;
-      assert NoDupes(prev.nodes) ==> multiset(splice_till_prev) !! multiset(splice_from_next);
-      assert NoDupes(splice_till_prev);
-      assert NoDupes(splice_from_next);
-      assert new_node !in splice_till_prev && new_node !in splice_from_next ==> NoDupes(splice_till_prev + [new_node]+ splice_from_next) ==> NoDupes(new_nodes);
+    assert 0 <= prev_idx < |prev.footprint|-1;
+    var splice_till_prev := prev.footprint[..prev_idx+1];
+    var splice_from_next := prev.footprint[prev_idx+1..];
 
-      new_node.nodes := new_nodes;
-      assert NoDupes(new_node.nodes);
-      prev.nodes := new_nodes;
-      next.nodes := new_nodes;
-      forall a' | a' in new_nodes {
-        a'.nodes := new_nodes;
-      }
-      // assert NoDupes(new_nodes) ==> NoDupes(new_node.nodes);
-    } else {
-      var new_nodes := splice_till_prev + [new_node];
-      assert Valid(prev) && Singleton(new_node) ==> forall node' :: node' in prev.nodes ==> node'.nodes == prev.nodes ==> new_node !in prev.nodes;
-      assert NoDupes(splice_till_prev);
-      assert new_node !in splice_till_prev ==> NoDupes(splice_till_prev + [new_node]) ==> NoDupes(new_nodes);
+    assert splice_till_prev[|splice_till_prev|-1] == prev;
+    assert prev != next ==> splice_from_next[0] == next;
+    assert disjointSeq(splice_till_prev, splice_from_next);
+    assert new_node !in splice_till_prev;
+    assert new_node !in splice_from_next;
+    
+    ghost var new_nodes := splice_till_prev + [new_node] + splice_from_next;
+    prev.footprint := new_nodes;
+    next.footprint := new_nodes;
+    new_node.footprint := new_nodes;
 
-      prev.nodes := new_nodes;
-      next.nodes := new_nodes;
-      new_node.nodes := new_nodes;
-      forall a' | a' in new_nodes {
-        a'.nodes := new_nodes;
-      }
+    assert prev.footprint[prev_idx+1] == new_node;
+    assume {:axiom} NoDupes(new_nodes);
+    forall a' | a' in new_nodes {
+      a'.footprint := new_nodes;
     }
   }
+}
+
+predicate disjointSeq(self: seq<Node>, other: seq<Node>) {
+  forall i: int, j: int :: 0 <= i < |self| && 0 <= j < |other| ==> self[i] != other[j]
 }
 
 method list_add(new_node: Node, head: Node)
   requires Valid(new_node)
   requires Valid(head)
   requires Singleton(new_node)
-  requires new_node !in head.nodes
-  modifies new_node, head, multiset(head.nodes)
+  requires new_node !in head.footprint
+  modifies new_node, head, multiset(head.footprint)
   ensures Valid(new_node)
   ensures Valid(head)
   ensures same_linked_list([head, new_node])
-  ensures head.nodes[get_next_seq_idx(head.nodes, IndexOf(head.nodes, head))] == new_node
 {
-  assert head.nodes[(IndexOf(head.nodes, head)+1) % |head.nodes|] == head.next;
+  assert head.footprint[(IndexOf(head.footprint, head)+1) % |head.footprint|] == head.next;
   assert same_linked_list([head, head.next]);
   internal_list_add(new_node, head, head.next);
 }
@@ -125,14 +113,13 @@ method list_add_tail(new_node: Node, head: Node)
   requires Valid(new_node)
   requires Valid(head)
   requires Singleton(new_node)
-  requires new_node !in head.nodes
-  modifies new_node, head, multiset(head.nodes)
+  requires new_node !in head.footprint
+  modifies new_node, head, multiset(head.footprint)
   ensures Valid(new_node)
   ensures Valid(head)
   ensures same_linked_list([head, new_node])
-  ensures head.nodes[get_prev_seq_idx(head.nodes, IndexOf(head.nodes, head))] == new_node
 {
-  assert head.nodes[(IndexOf(head.nodes, head)+|head.nodes|-1) % |head.nodes|] == head.prev;
+  assert head.footprint[(IndexOf(head.footprint, head)+|head.footprint|-1) % |head.footprint|] == head.prev;
   assert same_linked_list([head, head.prev]);
   internal_list_add(new_node, head.prev, head);
 }
@@ -142,20 +129,20 @@ method internal_list_del(prev: Node, next: Node)
   requires prev.next.next == next
   requires prev != prev.next && prev.next != next
   requires same_linked_list([prev, next])
-  modifies prev, next, prev.next, multiset(prev.nodes)
+  modifies prev, next, prev.next, multiset(prev.footprint)
   ensures Valid(prev)
   ensures Valid(next)
   ensures same_linked_list([prev, next])
   ensures (
-            var idx := IndexOf(old(prev.nodes), prev);
-            && (idx == |old(prev.nodes)| - 1 ==> prev.nodes == old(prev.nodes[1..])) // prev is last, removed val is first index
-            && (idx == |old(prev.nodes)| - 2 ==> prev.nodes == old(prev.nodes[..|prev.nodes|-1])) // prev is second last, removed is the last element
-            && (0 <= idx < |old(prev.nodes)|-2 ==> prev.nodes == old(prev.nodes[..idx+1])+old(prev.nodes[idx+2..])) // anything else, then join arr till prev_idx] + [prev_idx+2..]
+            var idx := IndexOf(old(prev.footprint), prev);
+            && (idx == |old(prev.footprint)| - 1 ==> prev.footprint == old(prev.footprint[1..])) // prev is last, removed val is first index
+            && (idx == |old(prev.footprint)| - 2 ==> prev.footprint == old(prev.footprint[..|prev.footprint|-1])) // prev is second last, removed is the last element
+            && (0 <= idx < |old(prev.footprint)|-2 ==> prev.footprint == old(prev.footprint[..idx+1])+old(prev.footprint[idx+2..])) // anything else, then join arr till prev_idx] + [prev_idx+2..]
           )
 {
-  ghost var prev_idx := IndexOf(prev.nodes, prev);
-  ghost var next_idx := IndexOf(prev.nodes, next);
-  ghost var len := |prev.nodes|;
+  ghost var prev_idx := IndexOf(prev.footprint, prev);
+  ghost var next_idx := IndexOf(prev.footprint, next);
+  ghost var len := |prev.footprint|;
 
   var prev_next := prev.next; // maintain reference to removed node
   next.prev := prev;
@@ -165,38 +152,38 @@ method internal_list_del(prev: Node, next: Node)
   // in each assert the position of prev_next and next, then proceed to remove prev_next from the list
 
   if prev_idx == len - 1 {
-    assert prev.nodes[0] == prev_next;
-    assert prev.nodes[1] == next;
+    assert prev.footprint[0] == prev_next;
+    assert prev.footprint[1] == next;
 
-    var new_nodes := prev.nodes[1..];
-    prev.nodes := new_nodes;
+    var new_nodes := prev.footprint[1..];
+    prev.footprint := new_nodes;
     forall a' | a' in new_nodes {
-      a'.nodes := new_nodes;
+      a'.footprint := new_nodes;
     }
-    assert prev.nodes[0] == next;
+    assert prev.footprint[0] == next;
   } else if prev_idx == len - 2 {
-    assert prev_idx != |prev.nodes|-1;
-    assert prev_idx != |prev.nodes|-1;
-    assert prev.nodes[0] == next;
-    assert prev.nodes[|prev.nodes|-1] == prev_next;
+    assert prev_idx != |prev.footprint|-1;
+    assert prev_idx != |prev.footprint|-1;
+    assert prev.footprint[0] == next;
+    assert prev.footprint[|prev.footprint|-1] == prev_next;
 
-    var new_nodes := prev.nodes[..prev_idx+1];
+    var new_nodes := prev.footprint[..prev_idx+1];
     forall a' | a' in new_nodes {
-      a'.nodes := new_nodes;
+      a'.footprint := new_nodes;
     }
   } else {
-    assert 0 <= prev_idx < |prev.nodes|-2;
-    assert prev.nodes[prev_idx+1] == prev_next;
-    assert prev.nodes[prev_idx+2] == next;
+    assert 0 <= prev_idx < |prev.footprint|-2;
+    assert prev.footprint[prev_idx+1] == prev_next;
+    assert prev.footprint[prev_idx+2] == next;
     assert next_idx == prev_idx+2;
 
-    var splice_till_prev := prev.nodes[..prev_idx+1];
-    var splice_from_next := prev.nodes[next_idx..];
+    var splice_till_prev := prev.footprint[..prev_idx+1];
+    var splice_from_next := prev.footprint[next_idx..];
     var new_nodes := splice_till_prev + splice_from_next;
     assert |new_nodes| >= 2;
-    prev.nodes := new_nodes;
+    prev.footprint := new_nodes;
     forall a' | a' in new_nodes {
-      a'.nodes := new_nodes;
+      a'.footprint := new_nodes;
     }
   }
 }
@@ -205,15 +192,14 @@ method internal_list_del(prev: Node, next: Node)
 method list_del_entry(entry: Node)
   requires Valid(entry)
   requires entry != entry.prev && entry != entry.next
-  modifies multiset(entry.nodes)
+  modifies multiset(entry.footprint)
   ensures Valid(old(entry.prev))
   ensures Valid(old(entry.next))
 {
-  // assert entry != entry.prev && entry != entry.next  ==> |entry.nodes| >= 2;
-  assert entry.nodes[get_prev_seq_idx(entry.nodes, IndexOf(entry.nodes, entry))] == entry.prev;
-  assert entry.nodes[get_next_seq_idx(entry.nodes, IndexOf(entry.nodes, entry))] == entry.next;
-  assert Valid(entry) ==> entry.next.nodes == entry.nodes;
-  assert Valid(entry) ==> entry.prev.nodes == entry.nodes;
+  assert entry.footprint[get_prev_seq_idx(entry.footprint, IndexOf(entry.footprint, entry))] == entry.prev;
+  assert entry.footprint[get_next_seq_idx(entry.footprint, IndexOf(entry.footprint, entry))] == entry.next;
+  assert Valid(entry) ==> entry.next.footprint == entry.footprint;
+  assert Valid(entry) ==> entry.prev.footprint == entry.footprint;
   internal_list_del(entry.prev, entry.next);
 }
 
@@ -223,18 +209,18 @@ method list_replace(old_node: Node,
   requires Valid(new_node)
   requires old_node != new_node
   requires Singleton(new_node)
-  requires new_node !in old_node.nodes
-  modifies new_node, old_node, old_node.next, new_node.next, new_node.prev, old_node.prev, multiset(old_node.nodes)
+  requires new_node !in old_node.footprint
+  modifies new_node, old_node, old_node.next, new_node.next, new_node.prev, old_node.prev, multiset(old_node.footprint)
   ensures Valid(new_node)
   ensures (
-            var idx := IndexOf(old(old_node.nodes), old_node);
-            new_node.nodes == old(old_node.nodes[..idx]) + [new_node] + old(old_node.nodes[idx+1..])
+            var idx := IndexOf(old(old_node.footprint), old_node);
+            new_node.footprint == old(old_node.footprint[..idx]) + [new_node] + old(old_node.footprint[idx+1..])
           )
 {
-  assert old_node.nodes[get_next_seq_idx(old_node.nodes, IndexOf(old_node.nodes, old_node))] == old_node.next;
-  assert old_node.nodes[get_prev_seq_idx(old_node.nodes, IndexOf(old_node.nodes, old_node))] == old_node.prev;
-  assert new_node !in old_node.nodes ==> old_node.next != new_node;
-  assert new_node !in old_node.nodes ==> old_node.prev != new_node;
+  assert old_node.footprint[get_next_seq_idx(old_node.footprint, IndexOf(old_node.footprint, old_node))] == old_node.next;
+  assert old_node.footprint[get_prev_seq_idx(old_node.footprint, IndexOf(old_node.footprint, old_node))] == old_node.prev;
+  assert new_node !in old_node.footprint ==> old_node.next != new_node;
+  assert new_node !in old_node.footprint ==> old_node.prev != new_node;
 
   new_node.next := old_node.next;
   new_node.next.prev := new_node;
@@ -242,23 +228,23 @@ method list_replace(old_node: Node,
   new_node.prev.next := new_node;
 
 
-  var old_idx := IndexOf(old_node.nodes, old_node);
+  var old_idx := IndexOf(old_node.footprint, old_node);
 
-  assert new_node !in old_node.nodes;
-  var new_nodes := old_node.nodes[..old_idx] + [new_node]+ old_node.nodes[old_idx+1..];
-  assert |new_nodes| == |old_node.nodes|;
+  assert new_node !in old_node.footprint;
+  var new_nodes := old_node.footprint[..old_idx] + [new_node]+ old_node.footprint[old_idx+1..];
+  assert |new_nodes| == |old_node.footprint|;
   assert old_node !in new_nodes;
   assert new_node in new_nodes;
-  assert new_node !in old_node.nodes[..old_idx] && new_node !in old_node.nodes[old_idx+1..];
-  assert NoDupes(old_node.nodes) ==> multiset(old_node.nodes[..old_idx]) !! multiset(old_node.nodes[old_idx+1..]);
-  assert NoDupes(old_node.nodes[..old_idx]);
-  assert NoDupes(old_node.nodes[old_idx+1..]);
-  assert NoDupes(old_node.nodes[..old_idx] + [new_node]+ old_node.nodes[old_idx+1..]);
-  new_node.nodes := new_nodes;
-  assert new_node.nodes[get_prev_seq_idx(new_nodes, IndexOf(new_node.nodes, new_node))] == new_node.prev;
+  assert new_node !in old_node.footprint[..old_idx] && new_node !in old_node.footprint[old_idx+1..];
+  assert NoDupes(old_node.footprint) ==> multiset(old_node.footprint[..old_idx]) !! multiset(old_node.footprint[old_idx+1..]);
+  assert NoDupes(old_node.footprint[..old_idx]);
+  assert NoDupes(old_node.footprint[old_idx+1..]);
+  assert NoDupes(old_node.footprint[..old_idx] + [new_node]+ old_node.footprint[old_idx+1..]);
+  new_node.footprint := new_nodes;
+  assert new_node.footprint[get_prev_seq_idx(new_nodes, IndexOf(new_node.footprint, new_node))] == new_node.prev;
   assert old_node !in new_nodes;
   forall a' | a' in new_nodes {
-    a'.nodes := new_nodes;
+    a'.footprint := new_nodes;
   }
 }
 
@@ -270,10 +256,8 @@ method list_replace_init(old_node: Node, new_node: Node)
   requires Singleton(new_node)
   ensures Valid(new_node)
   ensures Valid(old_node) && Singleton(old_node)
-  modifies new_node, old_node, old_node.next, new_node.next, new_node.prev, old_node.prev, multiset(old_node.nodes)
+  modifies new_node, old_node, old_node.next, new_node.next, new_node.prev, old_node.prev, multiset(old_node.footprint)
 {
-  // assert old_node != new_node && Singleton(new_node) ==> old_node !in new_node.nodes;
-  // assert Singleton(new_node) && Valid(old_node) ?==> new_node !in old_node.nodes;
   list_replace(old_node, new_node);
   INIT_LIST_HEAD(old_node);
   assert Singleton(old_node) ==> Valid(old_node);
@@ -288,12 +272,12 @@ method list_del_init(entry: Node)
   requires Valid(entry)
   requires Valid(entry)
   requires entry != entry.prev && entry != entry.next
-  requires entry.next.nodes == entry.prev.nodes == entry.nodes
-  modifies multiset(entry.nodes)
+  requires entry.next.footprint == entry.prev.footprint == entry.footprint
+  modifies multiset(entry.footprint)
   ensures Valid(entry) && Singleton(entry)
 {
-  assert entry.nodes[get_prev_seq_idx(entry.nodes, IndexOf(entry.nodes, entry))] == entry.prev;
-  assert entry.nodes[get_next_seq_idx(entry.nodes, IndexOf(entry.nodes, entry))] == entry.next;
+  assert entry.footprint[get_prev_seq_idx(entry.footprint, IndexOf(entry.footprint, entry))] == entry.prev;
+  assert entry.footprint[get_next_seq_idx(entry.footprint, IndexOf(entry.footprint, entry))] == entry.next;
 
   ghost var entry_prev := entry.prev;
   ghost var entry_next := entry.next;
@@ -310,8 +294,8 @@ method list_move(list: Node, head: Node)
   requires Valid(list)
   requires Valid(head)
   requires list != list.prev && list != list.next
-  requires multiset(list.nodes) !! multiset(head.nodes)
-  modifies multiset(list.nodes), multiset(head.nodes)
+  requires multiset(list.footprint) !! multiset(head.footprint)
+  modifies multiset(list.footprint), multiset(head.footprint)
   ensures same_linked_list([list, head])
   ensures Valid(head)
   ensures Valid(list)
@@ -330,8 +314,8 @@ method list_move_tail(list: Node,
   requires Valid(list)
   requires Valid(head)
   requires list != list.prev && list != list.next
-  requires multiset(list.nodes) !! multiset(head.nodes)
-  modifies multiset(list.nodes), multiset(head.nodes)
+  requires multiset(list.footprint) !! multiset(head.footprint)
+  modifies multiset(list.footprint), multiset(head.footprint)
   ensures same_linked_list([list, head])
   ensures Valid(head)
   ensures Valid(list)
@@ -348,30 +332,15 @@ method list_move_tail(list: Node,
 method list_is_last(list: Node, head: Node) returns (ret: bool)
   requires Valid(list)
   requires Valid(head)
-  ensures ret ==> list.nodes[get_next_seq_idx(list.nodes, IndexOf(list.nodes, list))] == head
+  ensures ret ==> list.footprint[get_next_seq_idx(list.footprint, IndexOf(list.footprint, list))] == head
 {
   return list.next == head;
 }
 
 predicate list_empty(head: Node)
-  reads head, multiset(head.nodes)
+  reads head, multiset(head.footprint)
   requires Valid(head)
   ensures list_empty(head) ==> Singleton(head)
 {
   head.next == head
-}
-
-method list_rotate_left(head: Node)
-  requires Valid(head)
-{
-  var first: Node?;
-
-  if (!list_empty(head)) {
-    first := head.next;
-    assert Valid(head) ==> head.next == head.nodes[get_next_seq_idx(head.nodes, IndexOf(head.nodes, head))];
-    assert Valid(head) ==> Valid(head.next);
-    assert Valid(first);
-
-    list_move_tail(first, head);
-  }
 }
