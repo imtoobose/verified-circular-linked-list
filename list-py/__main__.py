@@ -137,7 +137,7 @@ def randomCheck():
     for i in range(10):
         listSize = getSize(node0)
         if listSize == 1:
-             randomOp = random.choice([1, 2, 4])
+            randomOp = random.randrange(2, 5)
         else:
             randomOp = random.randrange(0, 5)
         
@@ -152,29 +152,7 @@ def randomCheck():
             print("Printing List after deleting node")
             printList(node0)
         
-        elif randomOp == 1:   # list__add Operation
-            numNodes = random.randrange(1, 4)
-            temp = node0
-            print("Printing List before adding " + str(numNodes) + " node(s) after head")
-            printList(node0)
-            for hops in range(numNodes):
-                temp = createNewNode()
-                default__.list__add(temp, node0)
-            print("Printing List after adding " + str(numNodes) + " node(s) after head")
-            printList(node0)
-        
-        elif randomOp == 2:   # list__add__tail Operation
-            numNodes = random.randrange(1, 4)
-            temp = node0
-            print("Printing List before adding " + str(numNodes) + " node(s) to the tail")
-            printList(node0)
-            for hops in range(numNodes):
-                temp = createNewNode()
-                default__.list__add__tail(temp, node0)
-            print("Printing List after adding " + str(numNodes) + " node(s) to the tail")
-            printList(node0)
-
-        elif randomOp == 3: # list__replace__init Operation
+        elif randomOp == 1: # list__replace__init Operation
             size = getSize(node0)
             newNode = createNewNode()
             print("Id of New Node: " + str(nodeMap[newNode]) + ", list of nodes before replacement: ")
@@ -185,6 +163,28 @@ def randomCheck():
                 temp = temp.next
             print("Replacing Node " + str(randNode + 1) + "(Id: " + str(nodeMap[temp]) + ") with Node of Id: " + str(nodeMap[newNode]))
             default__.list__replace__init(temp, newNode)
+            printList(node0)
+        
+        elif randomOp == 2:   # list__add Operation
+            numNodes = random.randrange(1, 4)
+            temp = node0
+            print("Printing List before adding " + str(numNodes) + " node(s) after head")
+            printList(node0)
+            for hops in range(numNodes):
+                temp = createNewNode()
+                default__.list__add(temp, node0)
+            print("Printing List after adding " + str(numNodes) + " node(s) after head")
+            printList(node0)
+        
+        elif randomOp == 3:   # list__add__tail Operation
+            numNodes = random.randrange(1, 4)
+            temp = node0
+            print("Printing List before adding " + str(numNodes) + " node(s) to the tail")
+            printList(node0)
+            for hops in range(numNodes):
+                temp = createNewNode()
+                default__.list__add__tail(temp, node0)
+            print("Printing List after adding " + str(numNodes) + " node(s) to the tail")
             printList(node0)
         
         elif randomOp == 4: # list__replace__init Operation
