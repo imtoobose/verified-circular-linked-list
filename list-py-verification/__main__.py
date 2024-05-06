@@ -24,7 +24,7 @@ def printList(head: Node):
     printStr = str(nodeMap[head])
     while tempNode.next != head:
         tempNode = tempNode.next
-        printStr += " ⇋ " + str(nodeMap[tempNode])
+        printStr += " <-> " + str(nodeMap[tempNode])
     print(printStr)
 
 def createNewNode() -> Node:
@@ -43,25 +43,25 @@ def singletonTest(head: Node):
         print("Node is not a singleton, it has other nodes attached")
 
 def listAddTailTest(newNode: Node, head: Node):
-    print("Printing Linked List before list__add__tail:")
+    print("Printing List before list__add__tail:")
     printList(head)
     default__.list__add__tail(newNode, head)
-    print("Printing Linked List after list__add__tail:")
+    print("Printing List after list__add__tail:")
     printList(head)
 
 def listAddTest(newNode: Node, head: Node):
-    print("Printing Linked List before list__add:")
+    print("Printing List before list__add:")
     printList(head)
     default__.list__add(newNode, head)
-    print("Printing Linked List after list__add:")
+    print("Printing List after list__add:")
     printList(head)
 
 def delNodeEntryTest(entry: Node):
-    print("Printing Linked List before list__del__entry:")
+    print("Printing List before list__del__entry:")
     printList(entry)
     temp = entry.next
     default__.list__del__entry(entry)
-    print("Printing Linked List after list__del__entry:")
+    print("Printing List after list__del__entry:")
     printList(temp)
 
 def randomCheck():
@@ -73,14 +73,15 @@ def randomCheck():
     node2 = createNewNode()
     default__.list__add__tail(node1, node0)
     default__.list__add__tail(node2, node0)
+    print("Initial List: ")
     printList(node0)
 
     for i in range(10):
         listSize = getSize(node0)
         if listSize == 1:
-             randomOp = random.random(1, 6)
+             randomOp = random.randrange(1, 6)
         else:
-            randomOp = random.random(0, 6)
+            randomOp = random.randrange(0, 6)
         
         if randomOp == 0:   # Delete Operation
             randomNode = random.randrange(1, listSize)
@@ -89,19 +90,30 @@ def randomCheck():
                 temp = temp.next
             print("Printing List before deleting node in position" + str(randomNode))
             printList(node0)
-            default__.list__del__entry(temp)
+            # default__.list__del__entry(temp)
             print("Printing List before deleting node")
             printList(node0)
         
-        if randomOp == 1:   # Delete Operation
-            randomNode = random.randrange(1, listSize)
+        elif randomOp == 1:   # list__add Operation
+            numNodes = random.randrange(1, 4)
             temp = node0
-            for hops in range(randomNode):
-                temp = temp.next
-            print("Printing List before deleting node in position" + str(randomNode))
+            print("Printing List before adding " + str(numNodes) + " node(s) after head")
             printList(node0)
-            default__.list__del__entry(temp)
-            print("Printing List before deleting node")
+            for hops in range(numNodes):
+                temp = createNewNode()
+                default__.list__add(temp, node0)
+            print("Printing List after adding " + str(numNodes) + " node(s) after head")
+            printList(node0)
+        
+        elif randomOp == 2:   # list__add__tail Operation
+            numNodes = random.randrange(1, 4)
+            temp = node0
+            print("Printing List before adding " + str(numNodes) + " node(s) to the tail")
+            printList(node0)
+            for hops in range(numNodes):
+                temp = createNewNode()
+                default__.list__add__tail(temp, node0)
+            print("Printing List after adding " + str(numNodes) + " node(s) to the tail")
             printList(node0)
 
 
