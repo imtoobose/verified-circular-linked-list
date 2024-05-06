@@ -11,6 +11,7 @@ import _dafny
 nodeCtr = 0
 nodeMap = {}
 
+# Auxilary Functions
 def getSize(head: Node) -> int:
     tempNode = head
     size = 1
@@ -35,6 +36,7 @@ def createNewNode() -> Node:
     nodeCtr += 1
     return newNode
 
+# Functions used for Sanity Testing
 def singletonTest(head: Node):
     print("Checking if the given node is a singleton...")
     if head == head.next == head.prev:
@@ -87,14 +89,39 @@ def listIsLastTest(head: Node):
     print("Checking if Node with Val " + str(nodeMap[temp]) + " is the last node")
     print(default__.list__is__last(temp, head))
 
-def listEmpty(head: Node):
+def listEmptyTest(head: Node):
     print("List: ")
     printList(head)
     print("Checking if the list has only one node")
     print(default__.list__empty(head))
 
+def listMoveTest(head: Node):
+    print("Current List: ")
+    printList(head)
+    newList = createNewNode()
+    default__.list__add__tail(createNewNode() ,newList)
+    default__.list__add__tail(createNewNode() ,newList)
+    print("List whose head is to be Added after 1st Node: ")
+    printList(newList)
+    default__.list__move(newList, head)
+    print("List: ")
+    printList(head)
+
+def listMoveTailTest(head: Node):
+    print("Current List: ")
+    printList(head)
+    newList = createNewNode()
+    default__.list__add__tail(createNewNode() ,newList)
+    default__.list__add__tail(createNewNode() ,newList)
+    print("List whose head is to be Added at the tail of prev list: ")
+    printList(newList)
+    default__.list__move__tail(newList, head)
+    print("List: ")
+    printList(head)
 
 
+# This function calls any of the functions defined in module_.py randomly for a total of 10 times
+# It shows the list before the function is called and after the operation is performed
 def randomCheck():
     nodeMap.clear()
     global nodeCtr
@@ -110,9 +137,9 @@ def randomCheck():
     for i in range(10):
         listSize = getSize(node0)
         if listSize == 1:
-             randomOp = random.choice([1, 2])
+             randomOp = random.choice([1, 2, 4])
         else:
-            randomOp = random.randrange(0, 4)
+            randomOp = random.randrange(0, 5)
         
         if randomOp == 0:   # Delete Operation
             randomNode = random.randrange(1, listSize)
@@ -147,7 +174,7 @@ def randomCheck():
             print("Printing List after adding " + str(numNodes) + " node(s) to the tail")
             printList(node0)
 
-        elif randomOp == 3: #list
+        elif randomOp == 3: # list__replace__init Operation
             size = getSize(node0)
             newNode = createNewNode()
             print("Id of New Node: " + str(nodeMap[newNode]) + ", list of nodes before replacement: ")
@@ -159,26 +186,39 @@ def randomCheck():
             print("Replacing Node " + str(randNode + 1) + "(Id: " + str(nodeMap[temp]) + ") with Node of Id: " + str(nodeMap[newNode]))
             default__.list__replace__init(temp, newNode)
             printList(node0)
-            
+        
+        elif randomOp == 4: # list__replace__init Operation
+            newList = createNewNode()
+            for i in range(random.randrange(0, 2)):
+                default__.list__add__tail(createNewNode() ,newList)
+            print("List whose head is to be Added at the tail of prev list: ")
+            printList(newList)
+            default__.list__move__tail(newList, node0)
+            print("List: ")
+            printList(node0)
 
-
+# Create a node and test if it is a single Node
+# It can be done by using either singletonTest() or listEmptyTest()
 dll = createNewNode()
 singletonTest(dll)
-listEmpty(dll)
+listEmptyTest(dll)
+
+# Create 3 more nodes that can be used as we please
 new_dll = createNewNode()
 new_dll2 = createNewNode()
 new_dll3 = createNewNode()
 
+# Add a new node to the head
 default__.list__add(new_dll, dll)
 
-print(getSize(dll))
-print(nodeMap[dll])
-printList(dll)
-singletonTest(dll)
+# Start Other Sanity Tests
 listAddTest(new_dll2, dll)
 listAddTailTest(new_dll3, dll)
 listIsLastTest(dll)
 replaceInitTest(dll)
+listMoveTest(dll)
+listMoveTailTest(dll)
+
+# Run Random Tests to Check output
 print("\nStart of Random Tests")
 randomCheck()
-# print(nodeMap)

@@ -57,6 +57,18 @@ class default__:
     def list__replace__init(old__node, new__node):
         default__.list__replace(old__node, new__node)
         default__.INIT__LIST__HEAD(old__node)
+    
+    @staticmethod
+    def list__move(list, head):
+        default__.list__del__entry(list)
+        default__.INIT__LIST__HEAD(list)
+        default__.list__add(list, head)
+
+    @staticmethod
+    def list__move__tail(list, head):
+        default__.list__del__entry(list)
+        default__.INIT__LIST__HEAD(list)
+        default__.list__add__tail(list, head)
 
     @staticmethod
     def list__del__init(entry):
@@ -91,6 +103,18 @@ class default__:
                 pass
             return d_1_i_
         return iife0_(0)
+    
+    @staticmethod
+    def disjointSeq(self, other):
+        def lambda0_(forall_var_0_):
+            def lambda1_(forall_var_1_):
+                d_1_j_: int = forall_var_1_
+                return not ((((0) <= (d_0_i_)) and ((d_0_i_) < (len(self)))) and (((0) <= (d_1_j_)) and ((d_1_j_) < (len(other))))) or (((self)[d_0_i_]) != ((other)[d_1_j_]))
+
+            d_0_i_: int = forall_var_0_
+            return _dafny.quantifier(_dafny.IntegerRange(0, len(other)), True, lambda1_)
+
+        return _dafny.quantifier(_dafny.IntegerRange(0, len(self)), True, lambda0_)
         
 
     @staticmethod
