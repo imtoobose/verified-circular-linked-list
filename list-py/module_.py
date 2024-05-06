@@ -14,6 +14,11 @@ class default__:
         pass
 
     @staticmethod
+    def INIT__LIST__HEAD(node):
+        (node).prev = node
+        (node).next = node
+
+    @staticmethod
     def internal__list__add(new__node, prev, next):
         (next).prev = new__node
         (new__node).next = next
@@ -27,13 +32,58 @@ class default__:
     @staticmethod
     def list__add__tail(new__node, head):
         default__.internal__list__add(new__node, head.prev, head)
-
+        
     @staticmethod
     def internal__list__del(prev, next):
         d_0_prev__next_: Node
         d_0_prev__next_ = prev.next
         (next).prev = prev
         (prev).next = next
+
+    @staticmethod
+    def list__del__entry(entry):
+        default__.internal__list__del(entry.prev, entry.next)
+
+    @staticmethod
+    def list__replace(old__node, new__node):
+        (new__node).next = old__node.next
+        obj0_ = new__node.next
+        obj0_.prev = new__node
+        (new__node).prev = old__node.prev
+        obj1_ = new__node.prev
+        obj1_.next = new__node
+
+    @staticmethod
+    def list__replace__init(old__node, new__node):
+        default__.list__replace(old__node, new__node)
+        default__.INIT__LIST__HEAD(old__node)
+    
+    @staticmethod
+    def list__move(list, head):
+        default__.list__del__entry(list)
+        default__.INIT__LIST__HEAD(list)
+        default__.list__add(list, head)
+
+    @staticmethod
+    def list__move__tail(list, head):
+        default__.list__del__entry(list)
+        default__.INIT__LIST__HEAD(list)
+        default__.list__add__tail(list, head)
+
+    @staticmethod
+    def list__del__init(entry):
+        default__.list__del__entry(entry)
+        default__.INIT__LIST__HEAD(entry)
+
+    @staticmethod
+    def list__is__last(list, head):
+        ret: bool = False
+        ret = (list.next) == (head)
+        return ret
+
+    @staticmethod
+    def list__empty(head):
+        return (head.next) == (head)
 
     @staticmethod
     def Singleton(n):
@@ -53,6 +103,18 @@ class default__:
                 pass
             return d_1_i_
         return iife0_(0)
+    
+    @staticmethod
+    def disjointSeq(self, other):
+        def lambda0_(forall_var_0_):
+            def lambda1_(forall_var_1_):
+                d_1_j_: int = forall_var_1_
+                return not ((((0) <= (d_0_i_)) and ((d_0_i_) < (len(self)))) and (((0) <= (d_1_j_)) and ((d_1_j_) < (len(other))))) or (((self)[d_0_i_]) != ((other)[d_1_j_]))
+
+            d_0_i_: int = forall_var_0_
+            return _dafny.quantifier(_dafny.IntegerRange(0, len(other)), True, lambda1_)
+
+        return _dafny.quantifier(_dafny.IntegerRange(0, len(self)), True, lambda0_)
         
 
     @staticmethod
